@@ -6,18 +6,18 @@ gate.pulse()
 assert not gate.outputHasFired
 
 gate.reset()
-gate.setInput(1)
+gate.setInput('B')
 gate.pulse()
 assert not gate.outputHasFired
 
 gate.reset()
-gate.setInput(0)
+gate.setInput('A')
 gate.pulse()
 assert not gate.outputHasFired
 
 gate.reset()
-gate.setInput(0)
-gate.setInput(1)
+gate.setInput('A')
+gate.setInput('B')
 gate.pulse()
 assert gate.outputHasFired
 
@@ -27,18 +27,18 @@ gate.pulse()
 assert not gate.outputHasFired
 
 gate.reset()
-gate.setInput(1)
+gate.setInput('B')
 gate.pulse()
 assert gate.outputHasFired
 
 gate.reset()
-gate.setInput(0)
+gate.setInput('A')
 gate.pulse()
 assert gate.outputHasFired
 
 gate.reset()
-gate.setInput(0)
-gate.setInput(1)
+gate.setInput('A')
+gate.setInput('B')
 gate.pulse()
 assert gate.outputHasFired
 
@@ -49,20 +49,19 @@ gate.pulse()
 assert not gate.outputHasFired
 
 gate.reset()
-gate.setInput(1)
+gate.setInput('B')
 gate.pulse()
 assert gate.outputHasFired
 
 gate.reset()
-gate.setInput(0)
+gate.setInput('A')
 gate.pulse()
 assert gate.outputHasFired
 
 
-print '-------------'
 gate.reset()
-gate.setInput(0)
-gate.setInput(1)
+gate.setInput('A')
+gate.setInput('B')
 gate.pulse()
 assert not gate.outputHasFired
 

@@ -60,19 +60,17 @@ class SwitchingLogicElement(LogicElement):
 		self.valvePosition = 0
 
 
-class Gate(object):
+class LogicBlock(object):
 	pulsesRequired = 1
 
 	def __init__(self, name):
 		self.elements = {}
-		self.inputElementNames = []
-		self.outputElementName = ''
 		self.outputHasFired = False
 		self.callBacks = []
 		self.name = name
 
-	def setInput(self, inputIndex):
-		self.elements[self.inputElementNames[inputIndex]].set()
+	def setInput(self, inputName):
+		self.elements[inputName].set()
 
 	def reset(self):
 		self.outputHasFired = False
@@ -94,51 +92,77 @@ class Gate(object):
 		self.callBacks.append((function, args))
 
 
-class AndGate(Gate):
+class AndGate(LogicBlock):
 	def __init__(self, *args):
-		Gate.__init__(self, args)
-		self.elements['in0'] = PlusLogicElement('in0')
-		self.elements['in1'] = PlusLogicElement('in1')
-		self.elements['in0'].attachToReadOfNextElement(self.elements['in1'])
-		self.inputElementNames = ['in0', 'in1']
-		self.elements['in1'].attachOutputFunction(0, self.fireOutput)
+		LogicBlock.__init__(self, args)
+		self.elements['A'] = PlusLogicElement('A')
+		self.elements['B'] = PlusLogicElement('B')
+		self.elements['A'].attachToReadOfNextElement(self.elements['B'])
+		self.elements['B'].attachOutputFunction(0, self.fireOutput)
 
 	def pulse(self):
-		self.elements['in0'].pulse()
+		self.elements['A'].pulse()
 
 
-class OrGate(Gate):
+class OrGate(LogicBlock):
 	def __init__(self, *args):
-		Gate.__init__(self, args)
-		self.elements['in0'] = PlusLogicElement('in0')
-		self.elements['in1'] = PlusLogicElement('in1')
-		self.inputElementNames = ['in0', 'in1']
-		self.elements['in0'].attachOutputFunction(0, self.fireOutput)
-		self.elements['in1'].attachOutputFunction(0, self.fireOutput)
+		LogicBlock.__init__(self, args)
+		self.elements['A'] = PlusLogicElement('A')
+		self.elements['B'] = PlusLogicElement('B')
+		self.elements['A'].attachOutputFunction(0, self.fireOutput)
+		self.elements['B'].attachOutputFunction(0, self.fireOutput)
 
 	def pulse(self):
-		self.elements['in0'].pulse()
-		self.elements['in1'].pulse()
+		self.elements['A'].pulse()
+		self.elements['B'].pulse()
 
 
-class XorGate(Gate):
+class XorGate(LogicBlock):
 	def __init__(self, *args):
-		Gate.__init__(self, args)
-		self.elements['in_A_0'] = PlusLogicElement('in_A_0')
-		self.elements['in_A_1'] = MinusLogicElement('in_A_1')
-		self.elements['in_B_0'] = MinusLogicElement('in_B_0')
-		self.elements['in_B_1'] = PlusLogicElement('in_B_1')
-		self.elements['in_A_0'].attachToReadOfNextElement(self.elements['in_A_1'])
-		self.elements['in_A_1'].attachOutputFunction(0, self.fireOutput)
-		self.elements['in_B_0'].attachToReadOfNextElement(self.elements['in_B_1'])
-		self.elements['in_B_1'].attachOutputFunction(0, self.fireOutput)
+		LogicBlock.__init__(self, args)
+		self.elements['A_0'] = PlusLogicElement('A_0')
+		self.elements['B_0'] = MinusLogicElement('B_0')
+		self.elements['A_1'] = MinusLogicElement('A_1')
+		self.elements['B_1'] = PlusLogicElement('B_1')
+		self.elements['A_0'].attachToReadOfNextElement(self.elements['B_0'])
+		self.elements['B_0'].attachOutputFunction(0, self.fireOutput)
+		self.elements['A_1'].attachToReadOfNextElement(self.elements['B_1'])
+		self.elements['B_1'].attachOutputFunction(0, self.fireOutput)
 
-	def setInput(self, inputIndex):
-		self.elements['in_A_{}'.format(inputIndex)].set()
-		self.elements['in_B_{}'.format(inputIndex)].set()
+	def setInput(self, inputName):
+		self.elements['{}_0'.format(inputName)].set()
+		self.elements['{}_1'.format(inputName)].set()
 
 	def pulse(self):
-		self.elements['in_A_0'].pulse()
-		self.elements['in_B_0'].pulse()
+		self.elements['A_0'].pulse()
+		self.elements['A_1'].pulse()
+
+
+class HalfAdder(LogicBlock):
+	def __init__(self, *args):
+		LogicBlock.__init__(self, args)
+		self.elements['xor'] = XorGate('xor')
+		self.elements['and'] = AndGate('and')
+		self.elements['xor'].attachOutputFunction(0, self.fireOutput, 'sum')
+		self.elements['and'].attachOutputFunction(0, self.fireOutput, 'carry')
+		self.callBacks = {'sum': [], 'carry': []}
+		self.outputHasFired = {'sum': False, 'carry': False}
+
+	def setInput(self, inputName):
+		self.elements['xor'].setInput(inputName)
+		self.elements['and'].setInput(inputName)
+
+	def pulse(self):
+		self.elements['xor'].pulse()
+		self.elements['and'].pulse()
+
+	def fireOutput(self, outputName):
+		if not self.outputHasFired[outputName]:
+			print 'Block {}, output {} has fired'.format(self.name, outputName)
+			self.outputHasFired[outputName] = True
+			for callback in self.callBacks[outputName]:
+				function, args = callback
+				function(*args)
+
 
 
