@@ -1,40 +1,52 @@
 class LogicElement(object):
-	numOutputs = 1
-
 	def __init__(self, name):
 		self.name = name
-		self.valvePosition = 0
-		self.callBacks = []
-		for i in range(self.numOutputs):
-			self.callBacks.append([])
-		self.reset()
+		self.callBacks = {'out': []}
+		self.outputsHaveFired = {'out': False}
 
 	def reset(self):
-		pass
+		for outputName in self.outputsHaveFired:
+			self.outputsHaveFired[outputName] = False
 
 	def set(self):
 		pass
 
-	def attachToSetOfNextElement(self, logicElement, outputIndex=0):
-		self.attachOutputFunction(outputIndex, logicElement.set)
-
-	def attachToReadOfNextElement(self, logicElement, outputIndex=0):
-		self.attachOutputFunction(outputIndex, logicElement.pulse)
-
-	def attachOutputFunction(self, outputIndex, function, *args):
-		self.callBacks[outputIndex].append((function, args))
+	def attachOutputFunction(self, outputName, function, *args):
+		self.callBacks[outputName].append((function, args))
 
 	def pulse(self):
-		print self.name + ' got pulse'
-		for i in range(self.numOutputs):
-			if self.valvePosition != i:
-				print 'Element {}, output {} sent pulse'.format(self.name, i)
-				for callback in self.callBacks[i]:
-					function, args = callback
-					function(*args)
+		pass
+
+	def fireOutput(self, outputName='out'):
+		if not self.outputsHaveFired[outputName]:
+			print 'Block {}, output {} has fired'.format(self.name, outputName)
+			self.outputsHaveFired[outputName] = True
+			for callback in self.callBacks[outputName]:
+				function, args = callback
+				function(*args)
 
 
-class PlusLogicElement(LogicElement):
+class PhysicalBaseElement(LogicElement):
+	def __init__(self, *args):
+		LogicElement.__init__(self, *args)
+		self.valvePosition = 0
+		self.reset()
+
+	def attachToSetOfNextElement(self, logicElement):
+		self.attachOutputFunction('out', logicElement.set)
+
+	def attachToReadOfNextElement(self, logicElement):
+		self.attachOutputFunction('out', logicElement.pulse)
+
+	def pulse(self):
+		self.fireOutput()
+
+	def fireOutput(self, outputName='out'):
+		if not self.valvePosition == 0:
+			LogicElement.fireOutput(self, outputName)
+
+
+class PlusLogicElement(PhysicalBaseElement):
 	def reset(self):
 		self.valvePosition = 0
 
@@ -42,7 +54,7 @@ class PlusLogicElement(LogicElement):
 		self.valvePosition = 1
 
 
-class MinusLogicElement(LogicElement):
+class MinusLogicElement(PhysicalBaseElement):
 	def reset(self):
 		self.valvePosition = 1
 
@@ -50,55 +62,28 @@ class MinusLogicElement(LogicElement):
 		self.valvePosition = 0
 
 
-class SwitchingLogicElement(LogicElement):
-	numOutputs = 2
+class LogicBlock(LogicElement):
 
-	def reset(self):
-		self.valvePosition = 1
-
-	def set(self):
-		self.valvePosition = 0
-
-
-class LogicBlock(object):
-	pulsesRequired = 1
-
-	def __init__(self, name):
+	def __init__(self, *args):
+		LogicElement.__init__(self, *args)
 		self.elements = {}
-		self.outputHasFired = False
-		self.callBacks = []
-		self.name = name
 
 	def setInput(self, inputName):
 		self.elements[inputName].set()
 
 	def reset(self):
-		self.outputHasFired = False
+		LogicElement.reset(self)
 		for k, element in self.elements.iteritems():
 			element.reset()
-
-	def pulse(self):
-		pass
-
-	def fireOutput(self):
-		if not self.outputHasFired:
-			print 'Gate {} has fired'.format(self.name)
-			self.outputHasFired = True
-			for callback in self.callBacks:
-				function, args = callback
-				function(*args)
-
-	def attachOutputFunction(self, function, *args):
-		self.callBacks.append((function, args))
 
 
 class AndGate(LogicBlock):
 	def __init__(self, *args):
-		LogicBlock.__init__(self, args)
+		LogicBlock.__init__(self, *args)
 		self.elements['A'] = PlusLogicElement('A')
 		self.elements['B'] = PlusLogicElement('B')
-		self.elements['A'].attachToReadOfNextElement(self.elements['B'])
-		self.elements['B'].attachOutputFunction(0, self.fireOutput)
+		self.elements['A'].attachOutputFunction('out', self.elements['B'].pulse)
+		self.elements['B'].attachOutputFunction('out', self.fireOutput)
 
 	def pulse(self):
 		self.elements['A'].pulse()
@@ -109,8 +94,8 @@ class OrGate(LogicBlock):
 		LogicBlock.__init__(self, args)
 		self.elements['A'] = PlusLogicElement('A')
 		self.elements['B'] = PlusLogicElement('B')
-		self.elements['A'].attachOutputFunction(0, self.fireOutput)
-		self.elements['B'].attachOutputFunction(0, self.fireOutput)
+		self.elements['A'].attachOutputFunction('out', self.fireOutput)
+		self.elements['B'].attachOutputFunction('out', self.fireOutput)
 
 	def pulse(self):
 		self.elements['A'].pulse()
@@ -125,9 +110,9 @@ class XorGate(LogicBlock):
 		self.elements['A_1'] = MinusLogicElement('A_1')
 		self.elements['B_1'] = PlusLogicElement('B_1')
 		self.elements['A_0'].attachToReadOfNextElement(self.elements['B_0'])
-		self.elements['B_0'].attachOutputFunction(0, self.fireOutput)
+		self.elements['B_0'].attachOutputFunction('out', self.fireOutput)
 		self.elements['A_1'].attachToReadOfNextElement(self.elements['B_1'])
-		self.elements['B_1'].attachOutputFunction(0, self.fireOutput)
+		self.elements['B_1'].attachOutputFunction('out', self.fireOutput)
 
 	def setInput(self, inputName):
 		self.elements['{}_0'.format(inputName)].set()
@@ -143,8 +128,8 @@ class HalfAdder(LogicBlock):
 		LogicBlock.__init__(self, args)
 		self.elements['xor'] = XorGate('xor')
 		self.elements['and'] = AndGate('and')
-		self.elements['xor'].attachOutputFunction(0, self.fireOutput, 'sum')
-		self.elements['and'].attachOutputFunction(0, self.fireOutput, 'carry')
+		self.elements['xor'].attachOutputFunction('sum', self.fireOutput)
+		self.elements['and'].attachOutputFunction('carry', self.fireOutput)
 		self.callBacks = {'sum': [], 'carry': []}
 		self.outputHasFired = {'sum': False, 'carry': False}
 
@@ -156,13 +141,6 @@ class HalfAdder(LogicBlock):
 		self.elements['xor'].pulse()
 		self.elements['and'].pulse()
 
-	def fireOutput(self, outputName):
-		if not self.outputHasFired[outputName]:
-			print 'Block {}, output {} has fired'.format(self.name, outputName)
-			self.outputHasFired[outputName] = True
-			for callback in self.callBacks[outputName]:
-				function, args = callback
-				function(*args)
 
 
 
