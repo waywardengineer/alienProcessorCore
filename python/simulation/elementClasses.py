@@ -62,6 +62,7 @@ class MinusLogicElement(PhysicalBaseElement):
 
 
 class LogicBlock(LogicElement):
+	required_pulses = 1
 
 	def __init__(self, *args):
 		LogicElement.__init__(self, *args)
@@ -124,7 +125,7 @@ class XorGate(LogicBlock):
 
 class HalfAdder(LogicBlock):
 	def __init__(self, *args):
-		LogicBlock.__init__(self, args)
+		LogicBlock.__init__(self, *args)
 		self.callBacks = {'sum': [], 'carry': []}
 		self.outputsHaveTriggered = {'sum': False, 'carry': False}
 		self.elements['xor'] = XorGate('xor')
@@ -138,6 +139,36 @@ class HalfAdder(LogicBlock):
 
 	def fireRead(self):
 		self.elements['xor'].fireRead()
+		self.elements['and'].fireRead()
+
+
+class FullAdder(LogicBlock):
+	required_pulses = 3
+
+	def __init__(self, *args):
+		LogicBlock.__init__(self, *args)
+		self.callBacks = {'sum': [], 'carry_out': []}
+		self.outputsHaveTriggered = {'sum': False, 'carry_out': False}
+		self.elements['HA1'] = HalfAdder('HA1')
+		self.elements['HA2'] = HalfAdder('HA2')
+		self.elements['and'] = AndGate('and')
+		self.elements['step1'] = PlusLogicElement('step1')
+		self.elements['step2'] = PlusLogicElement('step2')
+		self.elements['HA1'].attachOutputFunction('sum', self.elements['HA2'].setInput, 'A')
+		self.elements['HA1'].attachOutputFunction('carry', self.elements['and'].setInput, 'B')
+		self.elements['HA2'].attachOutputFunction('sum', self.triggerOutput, 'sum')
+		self.elements['HA2'].attachOutputFunction('carry', self.elements['and'].setInput, 'A')
+		self.elements['and'].attachOutputFunction('out', self.triggerOutput, 'carry_out')
+
+	def setInput(self, inputName):
+		if inputName in ['A', 'B']:
+			self.elements['HA1'].setInput(inputName)
+		if inputName == ['carry_in']:
+			self.elements['HA2'].setInput('B')
+
+	def fireRead(self):
+		self.elements['HA1'].fireRead()
+		self.elements['HA2'].fireRead()
 		self.elements['and'].fireRead()
 
 
