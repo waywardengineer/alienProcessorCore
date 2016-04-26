@@ -172,5 +172,13 @@ class FullAdder(LogicBlock):
 		self.elements['and'].fireRead()
 
 
+class DelayChain(LogicBlock):
+	def __init__(self, chainLength, *args):
+		LogicBlock.__init__(self, *args)
+		for i in range(chainLength):
+			key = 'out' + str(i)
+			self.callBacks[key] = []
+			self.outputsHaveTriggered[key] = False
+			self.elements[key] = PlusLogicElement(key)
 
 
